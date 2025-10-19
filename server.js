@@ -1,8 +1,7 @@
-// server.js - Optimized OpenAI to NVIDIA NIM API Proxy
+// server.js - Optimized OpenAI to NVIDIA NIM API Proxy (without dotenv)
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-require('dotenv').config(); // Best practice: use dotenv for environment variables
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +16,8 @@ const NIM_API_KEY = process.env.NIM_API_KEY;
 
 if (!NIM_API_KEY) {
   console.error("FATAL ERROR: NIM_API_KEY environment variable is not set.");
+  console.error("Please set it before running the server.");
+  console.error("Example: NIM_API_KEY=your_api_key_here node server.js");
   process.exit(1);
 }
 
@@ -25,7 +26,7 @@ const MODEL_MAPPING = {
   'gpt-3.5-turbo': 'meta/llama-3.1-8b-instruct',
   'gpt-4': 'meta/llama-3.1-70b-instruct',
   'gpt-4-turbo': 'meta/llama-3.1-70b-instruct',
-  'gpt-4o': 'deepseek-ai/deepseek-v2-chat', // Using a known compatible model
+  'gpt-4o': 'deepseek-ai/deepseek-v2-chat',
   'claude-3-opus': 'meta/llama-3.1-405b-instruct',
   'claude-3-sonnet': 'meta/llama-3.1-70b-instruct',
   'gemini-pro': 'google/gemini-pro'
@@ -53,10 +54,9 @@ app.post('/v1/chat/completions', async (req, res) => {
     const { model, messages, temperature, max_tokens, stream } = req.body;
     
     // Fallback model logic
-    const nimModel = MODEL_MAPPING[model] || 'meta/llama-3.1-8b-instruct'; // Default to a reliable model
+    const nimModel = MODEL_MAPPING[model] || 'meta/llama-3.1-8b-instruct';
 
-    // **FIX**: Ensure max_tokens is never too low, overriding the client if necessary.
-    // Janitor AI often sends low values; we'll enforce a reasonable minimum or use a large default.
+    // FIX: Ensure max_tokens is never too low
     const effective_max_tokens = (max_tokens && max_tokens > 256) ? max_tokens : 4096;
 
     const nimRequest = {
@@ -82,16 +82,14 @@ app.post('/v1/chat/completions', async (req, res) => {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       
-      // Pipe the response directly from NVIDIA to the client for max efficiency
       response.data.pipe(res);
 
     } else {
-      // Transform NIM response to OpenAI format
       res.json({
         id: response.data.id || `chatcmpl-${Date.now()}`,
         object: 'chat.completion',
         created: response.data.created || Math.floor(Date.now() / 1000),
-        model: model, // Return the model the user requested
+        model: model,
         choices: response.data.choices.map(choice => ({
           index: choice.index,
           message: {
@@ -105,11 +103,9 @@ app.post('/v1/chat/completions', async (req, res) => {
     }
     
   } catch (error) {
-    // **IMPROVEMENT**: Better error logging
     console.error('Error proxying request to NVIDIA NIM API:');
     if (error.response) {
       console.error(`Status: ${error.response.status}`);
-      console.error('Headers:', JSON.stringify(error.response.headers, null, 2));
       console.error('Data:', JSON.stringify(error.response.data, null, 2));
     } else {
       console.error(error.message);
