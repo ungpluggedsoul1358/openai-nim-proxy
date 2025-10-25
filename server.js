@@ -66,8 +66,8 @@ app.post('/v1/chat/completions', async (req, res) => {
   try {
     const { model, messages, temperature, max_tokens, stream } = req.body;
     // --- ADD THIS LOGGING ---
-    console.log('--- NEW REQUEST RECEIVED ---');
-    console.log('Incoming messages array:', JSON.stringify(messages, null, 2));
+    // console.log('--- NEW REQUEST RECEIVED ---');
+    // console.log('Incoming messages array:', JSON.stringify(messages, null, 2));
 
     // Smart model selection with fallback (User's original logic retained)
     let nimModel = MODEL_MAPPING[model];
